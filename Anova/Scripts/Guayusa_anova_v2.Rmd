@@ -1,0 +1,406 @@
+---
+title: "Cuantificación de compuestos fenolicos, flavonoides en *Ilex guayusa*"
+author: "Gabriela Salazar, Thomas Garzón"
+date: "2025-08-18"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+usethis::git_vaccinate()
+
+```
+
+# Objetivo general
+
+El presente trabajo tiene el objetivo de evaluar la diferencia entre la produccion de compuestos fenolicos y flavonoides en ilex guayusa de diferentes edades.
+
+## Cargado de datos
+
+Las librerías R usadas se enlistan a continuación:
+
+```{r bibliotecas, echo=TRUE, message=FALSE, warning=FALSE, error=FALSE, results='hide'}
+
+# Cargado de librerías
+# Instala manualmente si hace falta:
+# install.packages(c("readxl","dplyr","ggplot2","car","agricolae"))
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(car)        # por si quieres Levene/Anova tipo II
+library(agricolae)  # HSD.test (Tukey) y plots base
+# Para medias marginales y letras compactas de Tukey
+# install.packages(c("emmeans","multcomp"))
+library(emmeans)
+library(multcomp)  # aporta 'cld' para objetos de emmeans
+```
+
+Se usó la carpeta de trabajo del proyecto R como ruta preestablecida.
+
+```{r directorio}
+
+ppath <- "../ANOVA"
+
+```
+
+Se subio la data segun su información.
+
+```{r data, warning=FALSE}
+# Total phenolics
+fenoles_df <- data.frame(read_excel(file.path(ppath, "../Data/DATA.xlsx"), sheet = 1))
+
+# Total flavonoids
+flavonoides_df <- data.frame(read_excel(file.path(ppath, "../Data/DATA.xlsx"), sheet = 2))
+
+```
+
+## Conversión a factor (simple y explícita)
+
+Convierte las variables categóricas (ubicacion, edad, grupos) a tipo factor.
+
+Propósito: Asegurar que los modelos ANOVA reconozcan adecuadamente las variables como factores experimentales y no como variables numéricas.
+
+```{r}
+# Conversión a factor (simple y explícita)
+fenoles_df <- fenoles_df |>
+  mutate(
+    ubicacion = factor(ubicacion),
+    edad      = factor(edad),
+    grupos    = factor(grupos)
+  )
+
+flavonoides_df <- flavonoides_df |>
+  mutate(
+    ubicacion = factor(ubicacion),
+    edad      = factor(edad),
+    grupos    = factor(grupos)
+  )
+
+glimpse(fenoles_df)
+glimpse(flavonoides_df)
+
+# (Opcional)
+totalphenolics   <- fenoles_df
+totalflavonoids  <- flavonoides_df
+```
+
+# Fenoles
+
+## Anova
+
+Ajusta un ANOVA de 1-vía con “grupos”.
+
+Ajusta un ANOVA factorial con ubicacion × edad.
+
+Obtiene tablas ANOVA tipo I y tipo II.
+
+Propósito: Evaluar la significancia estadística de los factores principales y de la interacción sobre la producción de fenoles.
+
+```{r}
+#ANOVA 1 vía (factor: grupos)
+modelo_bs <- aov(total_phenolics ~ grupos, data = totalphenolics)
+summary(modelo_bs)
+
+# Modelo ANOVA con interacción
+fit_feno <- aov(total_phenolics ~ ubicacion * edad, data = fenoles_df)
+
+# Tabla ANOVA (tipo I clásica)
+summary(fit_feno)
+
+# Alternativa tipo II (marginal) con 'car'
+Anova(lm(total_phenolics ~ ubicacion * edad, data = fenoles_df), type = 2)
+```
+
+## Supuestos
+
+Prueba de normalidad de residuales (Shapiro-Wilk).
+
+Prueba de homogeneidad de varianzas (Levene).
+
+Crea una tabla resumen con valores p e interpretación cualitativa.
+
+Propósito: Validar los supuestos del modelo ANOVA antes de interpretar resultados.
+
+```{r}
+# Normalidad de residuales
+shapiro_feno <- shapiro.test(residuals(fit_feno))
+
+# Homogeneidad de varianzas (Levene) con interacción completa
+levene_feno <- leveneTest(total_phenolics ~ ubicacion * edad, data = fenoles_df)
+
+supuestos_feno <- tibble(
+  sheet      = "Fenoles",
+  response   = "total_phenolics",
+  shapiro_p  = round(shapiro_feno$p.value, 4),
+  levene_p   = round(levene_feno$`Pr(>F)`[1], 4),
+  normalidad = ifelse(shapiro_feno$p.value > 0.05, "No se rechaza normalidad", "Se rechaza normalidad"),
+  homogeneidad = ifelse(levene_feno$`Pr(>F)`[1] > 0.05, "Varianzas homogéneas", "Varianzas heterogéneas")
+)
+supuestos_feno
+
+```
+
+## Comparaciones múltiples
+
+Aplica TukeyHSD para ubicacion, edad y su interacción.
+
+Corre HSD.test (agricolae) para el factor “grupos”.
+
+Propósito: Identificar qué pares de medias difieren significativamente tras el ANOVA
+
+```{r}
+# Tukey clásico por factor principal y por interacción
+TukeyHSD(fit_feno, which = "ubicacion")
+TukeyHSD(fit_feno, which = "edad")
+TukeyHSD(fit_feno, which = "ubicacion:edad")
+
+tukey_bs <- HSD.test(modelo_bs, trt = "grupos", group = TRUE, console = TRUE)
+tukey_bs$groups  # letras por grupo
+```
+
+## Graficos
+
+#Tukey
+
+Muestra el gráfico clásico de Tukey generado por HSD.test sobre “grupos”.
+
+Propósito: Visualizar diferencias entre grupos con letras de significancia.
+
+```{r}
+tk_TPC <- plot(tukey_bs,
+     cex.names = 0.9,
+     ylab = "Average of total phenolics",
+     xlab = "Groups",
+     main = "Tukey — total phenolics",
+     font.main = 3)
+tk_TPC
+
+# Save plot (más ancho)
+# Guardar como PDF
+#pdf("tk_TPC.pdf", width = 6, height = 4)
+#plot(tukey_bs,
+#     cex.names = 0.9,
+#     ylab = "Average of total phenolics",
+#     xlab = "Groups",
+#     main = "Tukey — total phenolics",
+#     font.main = 3)
+#dev.off()
+
+# Guardar como PNG
+#png("tk_TPC.png", width = 6, height = 4, units = "in", res = 300)
+#plot(tukey_bs,
+#     cex.names = 0.9,
+#     ylab = "Average of total phenolics",
+#     xlab = "Groups",
+#     main = "Tukey — total phenolics",
+#     font.main = 3)
+#dev.off()
+
+```
+
+### Boxplot
+
+Boxplot de fenoles por ubicación, facetado por edad.
+
+Propósito: Explorar gráficamente la distribución y detectar patrones o posibles interacciones.
+
+```{r}
+# Boxplot por ubicación facet por edad
+ggplot(fenoles_df, aes(x = ubicacion, y = total_phenolics, fill = ubicacion)) +
+  geom_boxplot(width = 0.7, alpha = 0.85, outlier.shape = 21) +
+  facet_wrap(~ edad, nrow = 1) +
+  labs(title = "Fenoles: distribución por ubicación (facet por edad)",
+       x = "Ubicación", y = "Total phenolics") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none")
+
+```
+
+# Flavonoides
+
+## Anova
+
+ANOVA 1-vía por grupos.
+
+ANOVA factorial ubicacion × edad.
+
+Propósito: Repetir el análisis de varianza para la respuesta “total flavonoids”.
+
+```{r}
+modelo_bx <- aov(total_flavonoids ~ grupos, data = totalflavonoids)
+summary(modelo_bx)
+
+
+fit_flav <- aov(total_flavonoids ~ ubicacion * edad, data = flavonoides_df)
+
+summary(fit_flav)
+Anova(lm(total_flavonoids ~ ubicacion * edad, data = flavonoides_df), type = 2)
+```
+
+## Supuestos
+
+Normalidad (Shapiro-Wilk).
+
+Homogeneidad de varianzas (Levene).
+
+Tabla resumen con interpretación cualitativa.
+
+Propósito: Comprobar que los datos de flavonoides cumplen los criterios para ANOVA.
+
+```{r}
+shapiro_flav <- shapiro.test(residuals(fit_flav))
+shapiro_flav
+
+levene_flav <- leveneTest(total_flavonoids ~ ubicacion * edad, data = flavonoides_df)
+levene_flav
+
+supuestos_flav <- tibble::tibble(
+  variable = "total_flavonoids",
+  shapiro_p = round(shapiro_flav$p.value, 4),
+  levene_p  = round(levene_flav$`Pr(>F)`[1], 4),
+  normalidad = ifelse(shapiro_flav$p.value > 0.05, "No se rechaza normalidad", "Se rechaza normalidad"),
+  homogeneidad = ifelse(levene_flav$`Pr(>F)`[1] > 0.05, "Varianzas homogéneas", "Varianzas heterogéneas")
+)
+supuestos_flav
+```
+
+## Comparaciones múltiples
+
+TukeyHSD para ubicación, edad e interacción.
+
+HSD.test para grupos.
+
+Propósito: Determinar qué comparaciones son significativas.
+
+```{r}
+TukeyHSD(fit_flav, which = "ubicacion")
+TukeyHSD(fit_flav, which = "edad")
+TukeyHSD(fit_flav, which = "ubicacion:edad")
+
+tukey_bx <- HSD.test(modelo_bx, trt = "grupos", group = TRUE, console = TRUE)
+tukey_bx$groups
+```
+
+## Graficos
+
+### Tukey
+
+Gráfico base R con letras de Tukey para grupos.
+
+Propósito: Facilitar la interpretación visual de las diferencias.
+
+```{r}
+tk_TFC <- plot(tukey_bx,
+     cex.names = 0.9,
+     ylab = "Average total flavonoids",
+     xlab = "Groups",
+     main = "Tukey — total flavonoids",
+     font.main = 3)
+
+# Save plot (más ancho)
+# Guardar como PDF
+#pdf("tk_TFC.pdf", width = 6, height = 4)
+#plot(tukey_bx,
+#     cex.names = 0.9,
+#     ylab = "Average of total phenolics",
+#     xlab = "Groups",
+#     main = "Tukey — total phenolics",
+#     font.main = 3)
+#dev.off()
+
+# Guardar como PNG
+#png("tk_TFC.png", width = 6, height = 4, units = "in", res = 300)
+#plot(tukey_bx,
+#     cex.names = 0.9,
+#     ylab = "Average of total phenolics",
+#     xlab = "Groups",
+#     main = "Tukey — total phenolics",
+#     font.main = 3)
+#dev.off()
+
+```
+
+### Boxplot
+
+Boxplot de flavonoides por ubicación, facetado por edad.
+
+Propósito: Mostrar la variación entre ubicaciones y edades, resaltando posibles interacciones.
+
+```{r}
+ggplot(flavonoides_df, aes(x = ubicacion, y = total_flavonoids, fill = ubicacion)) +
+  geom_boxplot(width = 0.7, alpha = 0.85, outlier.shape = 21) +
+  facet_wrap(~ edad, nrow = 1) +
+  labs(title = "Flavonoides: distribución por ubicación (facet por edad)",
+       x = "Ubicación", y = "Total flavonoids") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none")
+```
+
+# División por factores
+
+Se realizo lo mismo que en anteriores paso pero enfocado a vizaulizar por facto, finalmente se encontro poca variabilidad entre factores.
+
+## Fenloes ubicacion- tukey
+
+```{r}
+# 1) Ubicación
+modelo_feno_ubic_1v <- aov(total_phenolics ~ ubicacion, data = fenoles_df)
+tukey_feno_ubic_1v  <- HSD.test(modelo_feno_ubic_1v, trt = "ubicacion", group = TRUE, console = TRUE)
+
+plot(tukey_feno_ubic_1v,
+     cex.names = 0.9,
+     ylab = "Average of total phenolics",
+     xlab = "Ubicación",
+     main = "Tukey (1-vía) — Fenoles por ubicación",
+     font.main = 3)
+```
+
+## Fenloes Edad- tukey
+
+```{r}
+# 2) Edad
+modelo_feno_edad_1v <- aov(total_phenolics ~ edad, data = fenoles_df)
+tukey_feno_edad_1v  <- HSD.test(modelo_feno_edad_1v, trt = "edad", group = TRUE, console = TRUE)
+
+plot(tukey_feno_edad_1v,
+     cex.names = 0.9,
+     ylab = "Average of total phenolics",
+     xlab = "Edad",
+     main = "Tukey (1-vía) — Fenoles por edad",
+     font.main = 3)
+```
+
+## Flavonoides ubicacion- Tukey
+
+```{r}
+# 1) Ubicación
+modelo_flav_ubic_1v <- aov(total_flavonoids ~ ubicacion, data = flavonoides_df)
+tukey_flav_ubic_1v  <- HSD.test(modelo_flav_ubic_1v, trt = "ubicacion", group = TRUE, console = TRUE)
+
+plot(tukey_flav_ubic_1v,
+     cex.names = 0.9,
+     ylab = "Average total flavonoids",
+     xlab = "Ubicación",
+     main = "Tukey (1-vía) — Flavonoides por ubicación",
+     font.main = 3)
+```
+
+## Flavonoides Edad- Tukey
+
+```{r}
+# 2) Edad
+modelo_flav_edad_1v <- aov(total_flavonoids ~ edad, data = flavonoides_df)
+tukey_flav_edad_1v  <- HSD.test(modelo_flav_edad_1v, trt = "edad", group = TRUE, console = TRUE)
+
+plot(tukey_flav_edad_1v,
+     cex.names = 0.9,
+     ylab = "Average total flavonoids",
+     xlab = "Edad",
+     main = "Tukey (1-vía) — Flavonoides por edad",
+     font.main = 3)
+```

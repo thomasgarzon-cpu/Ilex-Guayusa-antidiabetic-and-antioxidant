@@ -1,0 +1,112 @@
+type,sample_id,ubicacion,edad,conc,A0,Aprime,A,replicate
+Muestra,A-0,Talag,0,10,0.755,0.068,0.553,1
+Muestra,A-0,Talag,0,10,0.755,0.068,0.578,2
+Muestra,A-0,Talag,0,20,0.755,0.068,0.348,1
+Muestra,A-0,Talag,0,20,0.755,0.068,0.449,2
+Muestra,A-0,Talag,0,25,0.755,0.068,0.32,1
+Muestra,A-0,Talag,0,25,0.755,0.068,0.411,2
+Muestra,A-0,Talag,0,30,0.755,0.068,0.223,1
+Muestra,A-0,Talag,0,40,0.755,0.068,0.211,1
+Muestra,A-2,Talag,1,40,0.755,0.068,0.543,1
+Muestra,A-2,Talag,1,40,0.755,0.068,0.545,2
+Muestra,A-2,Talag,1,40,0.755,0.068,0.555,3
+Muestra,A-2,Talag,1,65,0.755,0.068,0.324,1
+Muestra,A-2,Talag,1,65,0.755,0.068,0.33,2
+Muestra,A-2,Talag,1,65,0.755,0.068,0.339,3
+Muestra,A-2,Talag,1,100,0.755,0.068,0.276,1
+Muestra,A-2,Talag,1,100,0.755,0.068,0.28,2
+Muestra,A-2,Talag,1,100,0.755,0.068,0.287,3
+Muestra,A-2,Talag,1,150,0.755,0.068,0.216,1
+Muestra,A-2,Talag,1,150,0.755,0.068,0.225,2
+Muestra,A-2,Talag,1,150,0.755,0.068,0.227,3
+Muestra,A-2,Talag,1,300,0.755,0.068,0.194,1
+Muestra,A-2,Talag,1,300,0.755,0.068,0.198,2
+Muestra,A-2,Talag,1,300,0.755,0.068,0.2,3
+Muestra,B-0,Alto Pano,0,15,0.755,0.068,0.523,1
+Muestra,B-0,Alto Pano,0,15,0.755,0.068,0.5,2
+Muestra,B-0,Alto Pano,0,15,0.755,0.068,0.51,3
+Muestra,B-0,Alto Pano,0,25,0.755,0.068,0.362,1
+Muestra,B-0,Alto Pano,0,25,0.755,0.068,0.257,2
+Muestra,B-0,Alto Pano,0,25,0.755,0.068,0.3,3
+Muestra,B-0,Alto Pano,0,35,0.755,0.068,0.276,1
+Muestra,B-0,Alto Pano,0,35,0.755,0.068,0.198,2
+Muestra,B-0,Alto Pano,0,35,0.755,0.068,0.25,3
+Muestra,B-0,Alto Pano,0,45,0.755,0.068,0.213,1
+Muestra,B-0,Alto Pano,0,45,0.755,0.068,0.188,2
+Muestra,B-0,Alto Pano,0,45,0.755,0.068,0.21,3
+Muestra,B-0,Alto Pano,0,65,0.755,0.068,0.194,1
+Muestra,B-0,Alto Pano,0,65,0.755,0.068,0.181,2
+Muestra,B-0,Alto Pano,0,65,0.755,0.068,0.19,3
+Muestra,B-2,Alto Pano,1,15,0.755,0.068,0.565,1
+Muestra,B-2,Alto Pano,1,15,0.755,0.068,0.56,2
+Muestra,B-2,Alto Pano,1,15,0.755,0.068,0.55,3
+Muestra,B-2,Alto Pano,1,25,0.755,0.068,0.398,1
+Muestra,B-2,Alto Pano,1,25,0.755,0.068,0.391,2
+Muestra,B-2,Alto Pano,1,25,0.755,0.068,0.39,3
+Muestra,B-2,Alto Pano,1,35,0.755,0.068,0.311,1
+Muestra,B-2,Alto Pano,1,35,0.755,0.068,0.309,2
+Muestra,B-2,Alto Pano,1,35,0.755,0.068,0.299,3
+Muestra,B-2,Alto Pano,1,45,0.755,0.068,0.246,1
+Muestra,B-2,Alto Pano,1,45,0.755,0.068,0.24,2
+Muestra,B-2,Alto Pano,1,45,0.755,0.068,0.238,3
+Muestra,B-2,Alto Pano,1,65,0.755,0.068,0.211,1
+Muestra,B-2,Alto Pano,1,65,0.755,0.068,0.201,2
+Muestra,B-2,Alto Pano,1,65,0.755,0.068,0.198,3
+Muestra,C-0,Alto Tena,0,15,0.755,0.068,0.695,1
+Muestra,C-0,Alto Tena,0,15,0.755,0.068,0.699,2
+Muestra,C-0,Alto Tena,0,15,0.755,0.068,0.689,3
+Muestra,C-0,Alto Tena,0,25,0.755,0.068,0.6,1
+Muestra,C-0,Alto Tena,0,25,0.755,0.068,0.598,2
+Muestra,C-0,Alto Tena,0,25,0.755,0.068,0.59,3
+Muestra,C-0,Alto Tena,0,35,0.755,0.068,0.589,1
+Muestra,C-0,Alto Tena,0,35,0.755,0.068,0.578,2
+Muestra,C-0,Alto Tena,0,35,0.755,0.068,0.55,3
+Muestra,C-0,Alto Tena,0,45,0.755,0.068,0.498,1
+Muestra,C-0,Alto Tena,0,45,0.755,0.068,0.495,2
+Muestra,C-0,Alto Tena,0,45,0.755,0.068,0.491,3
+Muestra,C-0,Alto Tena,0,65,0.755,0.068,0.4,1
+Muestra,C-0,Alto Tena,0,65,0.755,0.068,0.398,2
+Muestra,C-0,Alto Tena,0,65,0.755,0.068,0.388,3
+Muestra,C-0,Alto Tena,0,100,0.755,0.068,0.323,1
+Muestra,C-0,Alto Tena,0,100,0.755,0.068,0.32,2
+Muestra,C-0,Alto Tena,0,100,0.755,0.068,0.318,3
+Muestra,C-0,Alto Tena,0,500,0.755,0.068,0.311,1
+Muestra,C-0,Alto Tena,0,500,0.755,0.068,0.309,2
+Muestra,C-0,Alto Tena,0,500,0.755,0.068,0.3,3
+Muestra,C-0,Alto Tena,0,8000,0.755,0.068,0.276,1
+Muestra,C-0,Alto Tena,0,8000,0.755,0.068,0.275,2
+Muestra,C-0,Alto Tena,0,8000,0.755,0.068,0.217,3
+Muestra,C-2,Alto Tena,1,15,0.755,0.068,0.597,1
+Muestra,C-2,Alto Tena,1,15,0.755,0.068,0.6,2
+Muestra,C-2,Alto Tena,1,15,0.755,0.068,0.594,3
+Muestra,C-2,Alto Tena,1,25,0.755,0.068,0.437,1
+Muestra,C-2,Alto Tena,1,25,0.755,0.068,0.444,2
+Muestra,C-2,Alto Tena,1,25,0.755,0.068,0.43,3
+Muestra,C-2,Alto Tena,1,35,0.755,0.068,0.364,1
+Muestra,C-2,Alto Tena,1,35,0.755,0.068,0.371,2
+Muestra,C-2,Alto Tena,1,35,0.755,0.068,0.36,3
+Muestra,C-2,Alto Tena,1,45,0.755,0.068,0.311,1
+Muestra,C-2,Alto Tena,1,45,0.755,0.068,0.32,2
+Muestra,C-2,Alto Tena,1,45,0.755,0.068,0.3,3
+Muestra,C-2,Alto Tena,1,65,0.755,0.068,0.296,1
+Muestra,C-2,Alto Tena,1,65,0.755,0.068,0.292,2
+Muestra,C-2,Alto Tena,1,65,0.755,0.068,0.288,3
+Trolox,Trolox,NA,NA,2,0.755,0.068,0.646,1
+Trolox,Trolox,NA,NA,2,0.755,0.068,0.696,2
+Trolox,Trolox,NA,NA,2,0.755,0.068,0.629,3
+Trolox,Trolox,NA,NA,4,0.755,0.068,0.504,1
+Trolox,Trolox,NA,NA,4,0.755,0.068,0.491,2
+Trolox,Trolox,NA,NA,4,0.755,0.068,0.593,3
+Trolox,Trolox,NA,NA,6.01,0.755,0.068,0.414,1
+Trolox,Trolox,NA,NA,6.01,0.755,0.068,0.426,2
+Trolox,Trolox,NA,NA,6.01,0.755,0.068,0.43,3
+Trolox,Trolox,NA,NA,7.51,0.755,0.068,0.303,1
+Trolox,Trolox,NA,NA,7.51,0.755,0.068,0.302,2
+Trolox,Trolox,NA,NA,7.51,0.755,0.068,0.32,3
+Trolox,Trolox,NA,NA,9.01,0.755,0.068,0.227,1
+Trolox,Trolox,NA,NA,9.01,0.755,0.068,0.212,2
+Trolox,Trolox,NA,NA,9.01,0.755,0.068,0.221,3
+Trolox,Trolox,NA,NA,11,0.755,0.068,0.136,1
+Trolox,Trolox,NA,NA,11,0.755,0.068,0.133,2
+Trolox,Trolox,NA,NA,12.51,0.755,0.068,0.099,1
+Trolox,Trolox,NA,NA,12.51,0.755,0.068,0.12,2
