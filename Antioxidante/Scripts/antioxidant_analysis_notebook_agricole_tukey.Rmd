@@ -156,77 +156,66 @@ calc_percent_inhibition <- function(A, Aprime, A0) {
 
 ```{r}
 fit_ic50_one <- function(data_subset) {
-  # 1) Limpieza mínima: remover NA en mean_pi y descartar conc <= 0
+  # 1) Limpieza
   data <- data_subset %>%
-    dplyr::filter(!is.na(mean_pi), conc > 0)
+    dplyr::filter(!is.na(mean_pi), conc > 0) %>%
+    dplyr::arrange(conc)
 
-  # 2) Comprobación de información: requerimos ≥ 5 concentraciones únicas
-  #    (regla práctica para estabilizar el ajuste no lineal)
   if (dplyr::n_distinct(data$conc) < 5) {
-    return(list(
-      ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
-      method = "nlsLM", status = "pocos_puntos"
-    ))
+    return(list(ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
+                method = "nlsLM", status = "pocos_puntos"))
   }
 
-  # 3) Definir la función logística (TOP=100, BOTTOM=0):
-  #    Nota: trabajamos en log(x) para linealizar parcialmente el término.
-  logistic_fun <- function(x, b, e) {
-    100 / (1 + exp(b * (log(x) - log(e))))
+  # 2) Monotonicidad (permite ↑ o ↓)
+  diffs <- diff(data$mean_pi)
+  es_monotona <- all(diffs >= 0, na.rm = TRUE) || all(diffs <= 0, na.rm = TRUE)
+  if (!es_monotona) {
+    return(list(ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
+                method = "nlsLM", status = "no_monotona"))
   }
 
-  # 4) Valores iniciales:
-  #    - b: pendiente inicial moderada
-  #    - e: mediana de las concentraciones como arranque razonable del IC50
-  start_vals <- list(
-    b = 1,
-    e = stats::median(data$conc, na.rm = TRUE)
-  )
+  # 3) Cobertura del 50% en el rango observado (evita extrapolar)
+  rango <- range(data$mean_pi, na.rm = TRUE)
+  cubre50 <- (min(rango) <= 50) && (50 <= max(rango))
+  if (!cubre50) {
+    return(list(ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
+                method = "nlsLM", status = "sin_cobertura"))
+  }
 
-  # 5) Ajuste no lineal robusto con nlsLM:
-  #    - lower/upper: e > 0, b sin restricción de signo
-  #    - maxiter: dar oportunidades razonables de convergencia
+  # 4) Modelo log-logístico con TOP=100, BOTTOM=0
+  logistic_fun <- function(x, b, e) 100 / (1 + exp(b * (log(x) - log(e))))
+
+  # 5) Inicios y cotas: e>0; b acotado (evita explosiones numéricas)
+  start_vals <- list(b = if (diffs[1] < 0)  1 else -1,  # signo según tendencia
+                     e = stats::median(data$conc, na.rm = TRUE))
+
+  # b en [-10, 10] (ajústalo si tus curvas son más abruptas); e en (0, Inf)
   fit <- try(
-    minpack.lm::nlsLM(
-      mean_pi ~ logistic_fun(conc, b, e),
-      data    = data,
-      start   = start_vals,
-      lower   = c(-Inf, 0),   # b ∈ (-Inf, Inf), e ∈ (0, Inf)
-      upper   = c( Inf, Inf),
-      control = minpack.lm::nls.lm.control(maxiter = 200)
-    ),
+    minpack.lm::nlsLM(mean_pi ~ logistic_fun(conc, b, e),
+                      data = data,
+                      start = start_vals,
+                      lower = c(-10, 0),
+                      upper = c( 10, Inf),
+                      control = minpack.lm::nls.lm.control(maxiter = 200)),
     silent = TRUE
   )
 
-  # 6) Si el ajuste falla (no converge o error numérico), devolver NA
   if (inherits(fit, "try-error")) {
-    return(list(
-      ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
-      method = "nlsLM", status = "fallo_ajuste"
-    ))
+    return(list(ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
+                method = "nlsLM", status = "fallo_ajuste"))
   }
 
-  # 7) Extraer estimación puntual de IC50 (parámetro e)
-  ic50_est <- stats::coef(fit)["e"]
+  ic50_est <- unname(stats::coef(fit)["e"])
 
-  # 8) Intervalos de confianza (basados en aproximación asintótica):
-  #    confint() puede fallar si la matriz de varianza-covarianza es inestable;
-  #    en tal caso, devolvemos NA en los límites.
+  # 6) Intervalos (si son estables)
   ci <- try(suppressMessages(stats::confint(fit)), silent = TRUE)
   ic50_lower <- ic50_upper <- NA_real_
   if (!inherits(ci, "try-error") && "e" %in% rownames(ci)) {
-    ic50_lower <- ci["e", 1]
-    ic50_upper <- ci["e", 2]
+    ic50_lower <- ci["e", 1]; ic50_upper <- ci["e", 2]
   }
 
-  # 9) Empaquetar resultados
-  list(
-    ic50 = ic50_est,
-    ic50_lower = ic50_lower,
-    ic50_upper = ic50_upper,
-    method = "nlsLM",
-    status = "ok"
-  )
+  list(ic50 = ic50_est, ic50_lower = ic50_lower, ic50_upper = ic50_upper,
+       method = "nlsLM", status = "ok")
 }
 ```
 
@@ -861,7 +850,7 @@ run_abts_pipeline <- function(path_to_csv) {
 
 # 1) Ruta al archivo Excel. Ajuste la ruta/nombre si es necesario.
 ppath <- "../ANOVA"
-path_excel <- "../Data/Antioxidante_gaby_tidy.xlsx"
+path_excel <- "../Data/Antioxidante_gaby_tidy-ABTS.xlsx"
 
 # 2) Comprobación defensiva: existencia del archivo
 if (!file.exists(path_excel)) {
@@ -1003,13 +992,13 @@ Para exportar las figuras con calidad de publicación:
 
 ```{r}
 # Ejemplos de guardado (modifique nombres y tamaños según su caso)
-#ggplot2::ggsave("01_curvas_dosis_respuesta.pdf", resultados$plots$dose_response,
-#                width = 10, height = 7, units = "in", dpi = 300)
-#ggplot2::ggsave("02_residuos_vs_ajustados.png", resultados$plots$residuals_vs_fitted,
-#                width = 7, height = 5, units = "in", dpi = 300)
-#ggplot2::ggsave("03_qqplot_residuos.png", resultados$plots$qq_plot,
-#                width = 7, height = 5, units = "in", dpi = 300)
-#ggplot2::ggsave("04_tukey_cld.pdf", resultados$plots$tukey,
-#                width = 8, height = 6, units = "in", dpi = 300)
+ggplot2::ggsave("01_curvas_dosis_respuesta.pdf", resultados$plots$dose_response,
+                width = 10, height = 7, units = "in", dpi = 300)
+ggplot2::ggsave("02_residuos_vs_ajustados.png", resultados$plots$residuals_vs_fitted,
+                width = 7, height = 5, units = "in", dpi = 300)
+ggplot2::ggsave("03_qqplot_residuos.png", resultados$plots$qq_plot,
+                width = 7, height = 5, units = "in", dpi = 300)
+ggplot2::ggsave("04_tukey_cld.pdf", resultados$plots$tukey,
+                width = 8, height = 6, units = "in", dpi = 300)
 
 ```

@@ -181,77 +181,66 @@ NA si no se pudo estimar) method = “nlsLM” status ∈ {“ok”,
 
 ``` r
 fit_ic50_one <- function(data_subset) {
-  # 1) Limpieza mínima: remover NA en mean_pi y descartar conc <= 0
+  # 1) Limpieza
   data <- data_subset %>%
-    dplyr::filter(!is.na(mean_pi), conc > 0)
+    dplyr::filter(!is.na(mean_pi), conc > 0) %>%
+    dplyr::arrange(conc)
 
-  # 2) Comprobación de información: requerimos ≥ 5 concentraciones únicas
-  #    (regla práctica para estabilizar el ajuste no lineal)
   if (dplyr::n_distinct(data$conc) < 5) {
-    return(list(
-      ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
-      method = "nlsLM", status = "pocos_puntos"
-    ))
+    return(list(ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
+                method = "nlsLM", status = "pocos_puntos"))
   }
 
-  # 3) Definir la función logística (TOP=100, BOTTOM=0):
-  #    Nota: trabajamos en log(x) para linealizar parcialmente el término.
-  logistic_fun <- function(x, b, e) {
-    100 / (1 + exp(b * (log(x) - log(e))))
+  # 2) Monotonicidad (permite ↑ o ↓)
+  diffs <- diff(data$mean_pi)
+  es_monotona <- all(diffs >= 0, na.rm = TRUE) || all(diffs <= 0, na.rm = TRUE)
+  if (!es_monotona) {
+    return(list(ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
+                method = "nlsLM", status = "no_monotona"))
   }
 
-  # 4) Valores iniciales:
-  #    - b: pendiente inicial moderada
-  #    - e: mediana de las concentraciones como arranque razonable del IC50
-  start_vals <- list(
-    b = 1,
-    e = stats::median(data$conc, na.rm = TRUE)
-  )
+  # 3) Cobertura del 50% en el rango observado (evita extrapolar)
+  rango <- range(data$mean_pi, na.rm = TRUE)
+  cubre50 <- (min(rango) <= 50) && (50 <= max(rango))
+  if (!cubre50) {
+    return(list(ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
+                method = "nlsLM", status = "sin_cobertura"))
+  }
 
-  # 5) Ajuste no lineal robusto con nlsLM:
-  #    - lower/upper: e > 0, b sin restricción de signo
-  #    - maxiter: dar oportunidades razonables de convergencia
+  # 4) Modelo log-logístico con TOP=100, BOTTOM=0
+  logistic_fun <- function(x, b, e) 100 / (1 + exp(b * (log(x) - log(e))))
+
+  # 5) Inicios y cotas: e>0; b acotado (evita explosiones numéricas)
+  start_vals <- list(b = if (diffs[1] < 0)  1 else -1,  # signo según tendencia
+                     e = stats::median(data$conc, na.rm = TRUE))
+
+  # b en [-10, 10] (ajústalo si tus curvas son más abruptas); e en (0, Inf)
   fit <- try(
-    minpack.lm::nlsLM(
-      mean_pi ~ logistic_fun(conc, b, e),
-      data    = data,
-      start   = start_vals,
-      lower   = c(-Inf, 0),   # b ∈ (-Inf, Inf), e ∈ (0, Inf)
-      upper   = c( Inf, Inf),
-      control = minpack.lm::nls.lm.control(maxiter = 200)
-    ),
+    minpack.lm::nlsLM(mean_pi ~ logistic_fun(conc, b, e),
+                      data = data,
+                      start = start_vals,
+                      lower = c(-10, 0),
+                      upper = c( 10, Inf),
+                      control = minpack.lm::nls.lm.control(maxiter = 200)),
     silent = TRUE
   )
 
-  # 6) Si el ajuste falla (no converge o error numérico), devolver NA
   if (inherits(fit, "try-error")) {
-    return(list(
-      ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
-      method = "nlsLM", status = "fallo_ajuste"
-    ))
+    return(list(ic50 = NA_real_, ic50_lower = NA_real_, ic50_upper = NA_real_,
+                method = "nlsLM", status = "fallo_ajuste"))
   }
 
-  # 7) Extraer estimación puntual de IC50 (parámetro e)
-  ic50_est <- stats::coef(fit)["e"]
+  ic50_est <- unname(stats::coef(fit)["e"])
 
-  # 8) Intervalos de confianza (basados en aproximación asintótica):
-  #    confint() puede fallar si la matriz de varianza-covarianza es inestable;
-  #    en tal caso, devolvemos NA en los límites.
+  # 6) Intervalos (si son estables)
   ci <- try(suppressMessages(stats::confint(fit)), silent = TRUE)
   ic50_lower <- ic50_upper <- NA_real_
   if (!inherits(ci, "try-error") && "e" %in% rownames(ci)) {
-    ic50_lower <- ci["e", 1]
-    ic50_upper <- ci["e", 2]
+    ic50_lower <- ci["e", 1]; ic50_upper <- ci["e", 2]
   }
 
-  # 9) Empaquetar resultados
-  list(
-    ic50 = ic50_est,
-    ic50_lower = ic50_lower,
-    ic50_upper = ic50_upper,
-    method = "nlsLM",
-    status = "ok"
-  )
+  list(ic50 = ic50_est, ic50_lower = ic50_lower, ic50_upper = ic50_upper,
+       method = "nlsLM", status = "ok")
 }
 ```
 
@@ -942,18 +931,18 @@ readr::write_csv(resultados$supuestos, file.path(OUTPUTS_DIR, "ANOVA_assumptions
 dplyr::glimpse(resultados$ic50_series)
 ```
 
-    ## Rows: 20
+    ## Rows: 21
     ## Columns: 10
     ## $ type      <chr> "Muestra", "Muestra", "Muestra", "Muestra", "Muestra", "Mues…
-    ## $ sample_id <chr> "A-0", "A-0", "A-2", "A-2", "A-2", "B-0", "B-0", "B-0", "B-2…
-    ## $ ubicacion <chr> "Talag", "Talag", "Talag", "Talag", "Talag", "Alto Pano", "A…
-    ## $ edad      <chr> "0", "0", "1", "1", "1", "0", "0", "0", "1", "1", "1", "0", …
-    ## $ replicate <int> 1, 2, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3
-    ## $ ic50      <dbl> 1.454950e+01, NA, 4.926494e+01, 4.989371e+01, 5.193599e+01, …
-    ## $ ic50_low  <dbl> 11.752737, NA, 13.135928, 13.362635, 16.120779, 16.100770, N…
-    ## $ ic50_up   <dbl> 16.998266, NA, 73.264438, 74.578584, 77.026189, 21.669352, N…
+    ## $ sample_id <chr> "A-0", "A-0", "A-0", "A-2", "A-2", "A-2", "B-0", "B-0", "B-0…
+    ## $ ubicacion <chr> "Talag", "Talag", "Talag", "Talag", "Talag", "Talag", "Alto …
+    ## $ edad      <chr> "0", "0", "0", "1", "1", "1", "0", "0", "0", "1", "1", "1", …
+    ## $ replicate <int> 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3
+    ## $ ic50      <dbl> 14.549497, 17.898687, 16.122964, 49.265072, 49.893780, 51.93…
+    ## $ ic50_low  <dbl> 11.752737, NA, 10.546729, 13.135915, 13.362629, 16.120776, 1…
+    ## $ ic50_up   <dbl> 16.998266, NA, 20.595941, 73.264437, 74.578584, 77.026188, 2…
     ## $ method    <chr> "nlsLM", "nlsLM", "nlsLM", "nlsLM", "nlsLM", "nlsLM", "nlsLM…
-    ## $ status    <chr> "ok", "pocos_puntos", "ok", "ok", "ok", "ok", "ok", "ok", "o…
+    ## $ status    <chr> "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", "ok", …
 
 ``` r
 # Estadísticas del IC50 promedio de Trolox
@@ -972,25 +961,27 @@ resultados$ic50_trolox
 resultados$teac_table
 ```
 
-    ## # A tibble: 16 × 7
-    ##    type    sample_id ubicacion edad  replicate    ic50     teac
-    ##    <chr>   <chr>     <chr>     <chr>     <int>   <dbl>    <dbl>
-    ##  1 Muestra A-0       Talag     0             1 1.45e 1 3.35e- 1
-    ##  2 Muestra A-2       Talag     1             1 4.93e 1 9.90e- 2
-    ##  3 Muestra A-2       Talag     1             2 4.99e 1 9.77e- 2
-    ##  4 Muestra A-2       Talag     1             3 5.19e 1 9.39e- 2
-    ##  5 Muestra B-0       Alto Pano 0             1 1.91e 1 2.56e- 1
-    ##  6 Muestra B-0       Alto Pano 0             2 5.00e18 9.76e-19
-    ##  7 Muestra B-0       Alto Pano 0             3 3.56e18 1.37e-18
-    ##  8 Muestra B-2       Alto Pano 1             1 2.20e 1 2.22e- 1
-    ##  9 Muestra B-2       Alto Pano 1             2 2.16e 1 2.26e- 1
-    ## 10 Muestra B-2       Alto Pano 1             3 2.11e 1 2.32e- 1
-    ## 11 Muestra C-0       Alto Tena 0             1 9.97e 1 4.89e- 2
-    ## 12 Muestra C-0       Alto Tena 0             2 9.56e 1 5.10e- 2
-    ## 13 Muestra C-0       Alto Tena 0             3 7.45e 1 6.54e- 2
-    ## 14 Muestra C-2       Alto Tena 1             1 2.64e 1 1.85e- 1
-    ## 15 Muestra C-2       Alto Tena 1             2 2.70e 1 1.80e- 1
-    ## 16 Muestra C-2       Alto Tena 1             3 2.57e 1 1.90e- 1
+    ## # A tibble: 18 × 7
+    ##    type    sample_id ubicacion edad  replicate  ic50   teac
+    ##    <chr>   <chr>     <chr>     <chr>     <int> <dbl>  <dbl>
+    ##  1 Muestra A-0       Talag     0             1  14.5 0.335 
+    ##  2 Muestra A-0       Talag     0             2  17.9 0.272 
+    ##  3 Muestra A-0       Talag     0             3  16.1 0.302 
+    ##  4 Muestra A-2       Talag     1             1  49.3 0.0990
+    ##  5 Muestra A-2       Talag     1             2  49.9 0.0977
+    ##  6 Muestra A-2       Talag     1             3  51.9 0.0939
+    ##  7 Muestra B-0       Alto Pano 0             1  19.1 0.256 
+    ##  8 Muestra B-0       Alto Pano 0             2  16.1 0.302 
+    ##  9 Muestra B-0       Alto Pano 0             3  17.2 0.284 
+    ## 10 Muestra B-2       Alto Pano 1             1  22.0 0.222 
+    ## 11 Muestra B-2       Alto Pano 1             2  21.6 0.226 
+    ## 12 Muestra B-2       Alto Pano 1             3  21.1 0.232 
+    ## 13 Muestra C-0       Alto Tena 0             1  99.7 0.0489
+    ## 14 Muestra C-0       Alto Tena 0             2  95.6 0.0510
+    ## 15 Muestra C-0       Alto Tena 0             3  74.5 0.0654
+    ## 16 Muestra C-2       Alto Tena 1             1  26.4 0.185 
+    ## 17 Muestra C-2       Alto Tena 1             2  27.0 0.180 
+    ## 18 Muestra C-2       Alto Tena 1             3  25.7 0.190
 
 ## ANOVA y verificación de supuestos
 
@@ -1000,13 +991,13 @@ resultados$anova
 ```
 
     ## # A tibble: 5 × 5
-    ##   term            sumsq    df statistic  p.value
-    ##   <chr>           <dbl> <dbl>     <dbl>    <dbl>
-    ## 1 (Intercept)    0.0218     1      4.97  0.0499 
-    ## 2 ubicacion      0.0616     2      7.03  0.0124 
-    ## 3 edad           0.0299     1      6.83  0.0259 
-    ## 4 ubicacion:edad 0.0840     2      9.58  0.00474
-    ## 5 Residuals      0.0438    10     NA    NA
+    ##   term             sumsq    df statistic   p.value
+    ##   <chr>            <dbl> <dbl>     <dbl>     <dbl>
+    ## 1 (Intercept)    0.236       1     847.   1.69e-12
+    ## 2 ubicacion      0.113       2     202.   5.70e-10
+    ## 3 edad           0.00443     1      15.8  1.82e- 3
+    ## 4 ubicacion:edad 0.0852      2     152.   2.95e- 9
+    ## 5 Residuals      0.00335    12      NA   NA
 
 ``` r
 # Pruebas de normalidad y homocedasticidad
@@ -1014,10 +1005,10 @@ resultados$supuestos
 ```
 
     ## # A tibble: 2 × 2
-    ##   test                                 p.value
-    ##   <chr>                                  <dbl>
-    ## 1 Shapiro-Wilk (normalidad residuos) 0.0000367
-    ## 2 Levene (homogeneidad varianzas)    0.603
+    ##   test                               p.value
+    ##   <chr>                                <dbl>
+    ## 1 Shapiro-Wilk (normalidad residuos)  0.0650
+    ## 2 Levene (homogeneidad varianzas)     0.181
 
 ## Comparaciones múltiples (Tukey)
 
@@ -1031,65 +1022,65 @@ resultados$tukey
     ## 
     ## $groups
     ##                   teac groups
-    ## 0:Talag     0.33519394      a
-    ## 1:Alto Pano 0.22642042     ab
-    ## 1:Alto Tena 0.18505083     ab
-    ## 1:Talag     0.09688048     ab
-    ## 0:Alto Pano 0.08519387     ab
-    ## 0:Alto Tena 0.05511364      b
+    ## 0:Talag     0.30338275      a
+    ## 0:Alto Pano 0.28074312      a
+    ## 1:Alto Pano 0.22642038      b
+    ## 1:Alto Tena 0.18505082      b
+    ## 1:Talag     0.09688030      c
+    ## 0:Alto Tena 0.05511335      c
     ## 
     ## $means
-    ##                   teac         std r         se          Min        Max
-    ## 0:Alto Pano 0.08519387 0.147560110 3 0.03821718 9.760583e-19 0.25558161
-    ## 0:Alto Tena 0.05511364 0.008999479 3 0.03821718 4.890233e-02 0.06543424
-    ## 0:Talag     0.33519394          NA 1 0.06619410 3.351939e-01 0.33519394
-    ## 1:Alto Pano 0.22642042 0.004915752 3 0.03821718 2.217502e-01 0.23154949
-    ## 1:Alto Tena 0.18505083 0.004702380 3 0.03821718 1.804505e-01 0.18984903
-    ## 1:Talag     0.09688048 0.002653622 3 0.03821718 9.390220e-02 0.09899340
-    ##                      Q25          Q50        Q75
-    ## 0:Alto Pano 1.172879e-18 1.369699e-18 0.12779080
-    ## 0:Alto Tena 4.995335e-02 5.100436e-02 0.05821930
-    ## 0:Talag     3.351939e-01 3.351939e-01 0.33519394
-    ## 1:Alto Pano 2.238559e-01 2.259616e-01 0.22875555
-    ## 1:Alto Tena 1.826517e-01 1.848529e-01 0.18735098
-    ## 1:Talag     9.582402e-02 9.774584e-02 0.09836962
+    ##                   teac         std r          se        Min        Max
+    ## 0:Alto Pano 0.28074312 0.023610119 3 0.009648967 0.25558158 0.30241291
+    ## 0:Alto Tena 0.05511335 0.008999583 3 0.009648967 0.04890119 0.06543395
+    ## 0:Talag     0.30338275 0.031370331 3 0.009648967 0.27247263 0.33519388
+    ## 1:Alto Pano 0.22642038 0.004915751 3 0.009648967 0.22175012 0.23154945
+    ## 1:Alto Tena 0.18505082 0.004702388 3 0.009648967 0.18045049 0.18984902
+    ## 1:Talag     0.09688030 0.002653531 3 0.009648967 0.09390211 0.09899310
+    ##                    Q25       Q50        Q75
+    ## 0:Alto Pano 0.26990822 0.2842349 0.29332389
+    ## 0:Alto Tena 0.04995305 0.0510049 0.05821942
+    ## 0:Talag     0.28747719 0.3024818 0.31883782
+    ## 1:Alto Pano 0.22385584 0.2259616 0.22875551
+    ## 1:Alto Tena 0.18265171 0.1848529 0.18735098
+    ## 1:Talag     0.09582390 0.0977457 0.09836940
     ## 
     ## $HSDtest
     ## $statistics
-    ##       MSerror Df      Mean       CV
-    ##   0.004381659 10 0.1425732 46.42814
+    ##        MSerror Df      Mean       CV        MSD
+    ##   0.0002793077 12 0.1912651 8.737872 0.04583483
     ## 
     ## $parameters
     ##    test   name.t ntr StudentizedRange alpha
-    ##   Tukey group_AL   6         4.912016  0.05
+    ##   Tukey group_AL   6         4.750231  0.05
     ## 
     ## $means
-    ##                   teac         std r         se          Min        Max
-    ## 0:Alto Pano 0.08519387 0.147560110 3 0.03821718 9.760583e-19 0.25558161
-    ## 0:Alto Tena 0.05511364 0.008999479 3 0.03821718 4.890233e-02 0.06543424
-    ## 0:Talag     0.33519394          NA 1 0.06619410 3.351939e-01 0.33519394
-    ## 1:Alto Pano 0.22642042 0.004915752 3 0.03821718 2.217502e-01 0.23154949
-    ## 1:Alto Tena 0.18505083 0.004702380 3 0.03821718 1.804505e-01 0.18984903
-    ## 1:Talag     0.09688048 0.002653622 3 0.03821718 9.390220e-02 0.09899340
-    ##                      Q25          Q50        Q75
-    ## 0:Alto Pano 1.172879e-18 1.369699e-18 0.12779080
-    ## 0:Alto Tena 4.995335e-02 5.100436e-02 0.05821930
-    ## 0:Talag     3.351939e-01 3.351939e-01 0.33519394
-    ## 1:Alto Pano 2.238559e-01 2.259616e-01 0.22875555
-    ## 1:Alto Tena 1.826517e-01 1.848529e-01 0.18735098
-    ## 1:Talag     9.582402e-02 9.774584e-02 0.09836962
+    ##                   teac         std r          se        Min        Max
+    ## 0:Alto Pano 0.28074312 0.023610119 3 0.009648967 0.25558158 0.30241291
+    ## 0:Alto Tena 0.05511335 0.008999583 3 0.009648967 0.04890119 0.06543395
+    ## 0:Talag     0.30338275 0.031370331 3 0.009648967 0.27247263 0.33519388
+    ## 1:Alto Pano 0.22642038 0.004915751 3 0.009648967 0.22175012 0.23154945
+    ## 1:Alto Tena 0.18505082 0.004702388 3 0.009648967 0.18045049 0.18984902
+    ## 1:Talag     0.09688030 0.002653531 3 0.009648967 0.09390211 0.09899310
+    ##                    Q25       Q50        Q75
+    ## 0:Alto Pano 0.26990822 0.2842349 0.29332389
+    ## 0:Alto Tena 0.04995305 0.0510049 0.05821942
+    ## 0:Talag     0.28747719 0.3024818 0.31883782
+    ## 1:Alto Pano 0.22385584 0.2259616 0.22875551
+    ## 1:Alto Tena 0.18265171 0.1848529 0.18735098
+    ## 1:Talag     0.09582390 0.0977457 0.09836940
     ## 
     ## $comparison
     ## NULL
     ## 
     ## $groups
     ##                   teac groups
-    ## 0:Talag     0.33519394      a
-    ## 1:Alto Pano 0.22642042     ab
-    ## 1:Alto Tena 0.18505083     ab
-    ## 1:Talag     0.09688048     ab
-    ## 0:Alto Pano 0.08519387     ab
-    ## 0:Alto Tena 0.05511364      b
+    ## 0:Talag     0.30338275      a
+    ## 0:Alto Pano 0.28074312      a
+    ## 1:Alto Pano 0.22642038      b
+    ## 1:Alto Tena 0.18505082      b
+    ## 1:Talag     0.09688030      c
+    ## 0:Alto Tena 0.05511335      c
     ## 
     ## attr(,"class")
     ## [1] "group"
@@ -1130,12 +1121,12 @@ Para exportar las figuras con calidad de publicación:
 
 ``` r
 # Ejemplos de guardado (modifique nombres y tamaños según su caso)
-#ggplot2::ggsave("01_curvas_dosis_respuesta.pdf", resultados$plots$dose_response,
-#                width = 10, height = 7, units = "in", dpi = 300)
-#ggplot2::ggsave("02_residuos_vs_ajustados.png", resultados$plots$residuals_vs_fitted,
-#                width = 7, height = 5, units = "in", dpi = 300)
-#ggplot2::ggsave("03_qqplot_residuos.png", resultados$plots$qq_plot,
-#                width = 7, height = 5, units = "in", dpi = 300)
-#ggplot2::ggsave("04_tukey_cld.pdf", resultados$plots$tukey,
-#                width = 8, height = 6, units = "in", dpi = 300)
+ggplot2::ggsave("01_curvas_dosis_respuesta.pdf", resultados$plots$dose_response,
+                width = 10, height = 7, units = "in", dpi = 300)
+ggplot2::ggsave("02_residuos_vs_ajustados.png", resultados$plots$residuals_vs_fitted,
+                width = 7, height = 5, units = "in", dpi = 300)
+ggplot2::ggsave("03_qqplot_residuos.png", resultados$plots$qq_plot,
+                width = 7, height = 5, units = "in", dpi = 300)
+ggplot2::ggsave("04_tukey_cld.pdf", resultados$plots$tukey,
+                width = 8, height = 6, units = "in", dpi = 300)
 ```

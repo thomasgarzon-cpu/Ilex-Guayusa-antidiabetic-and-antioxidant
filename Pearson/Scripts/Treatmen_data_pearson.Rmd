@@ -40,7 +40,7 @@ ruta_archivo <- "../Data/PEARSON.xlsx"
 datos <- read_excel(ruta_archivo, sheet = 1)
 
 # Selecciona solo las columnas numéricas de interés
-variables <- c("TPC", "TFC", "DPPH", "α-glucosidase")
+variables <- c("TPC", "TFC", "DPPH", "ABTS", "α-glucosidase")
 df <- datos[variables]
 
 # Calcula la matriz de correlaciones y los valores de p
@@ -276,7 +276,10 @@ ens_cols <- c("ABTS","DPPH","TPC","TFC","α-glucosidase")
 
 # Unimos por 'grupo' para alinear puntos (n = 6 por cada correlación)
 joined <- metab_grp %>%
-  left_join(ensayos %>% select(grupo, all_of(ens_cols)), by = "grupo")
+  dplyr::left_join(
+    dplyr::select(ensayos, grupo, dplyr::all_of(ens_cols)),
+    by = "grupo"
+  )
 
 # Función que devuelve r y p para un vector y (abund_mean) vs cada ensayo
 corr_one_metab <- function(df_metab) {
@@ -689,5 +692,123 @@ biplop <- ggplot(load_plot) +
 #       width = 12, height = 8, units = "in", dpi = 300)
 
 biplop
+```
+```{r}
+# --- Biplot de variables: metabolitos (pequeños) vs ensayos (grandes) ----
+# Requiere: metab_grp (metabolito, grupo, abund_mean) y ensayos (grupo + ens_cols)
+# install.packages(c("ggrepel")) # si hace falta
+library(tidyr); library(dplyr); library(ggplot2); library(ggrepel); library(grid)
+
+ens_cols <- c("ABTS","DPPH","TPC","TFC","α-glucosidase")
+
+# 1) Matriz grupos × (metabolitos + ensayos)
+X_metab <- metab_grp %>%
+  tidyr::pivot_wider(names_from = metabolito, values_from = abund_mean)
+
+X <- X_metab %>%
+  inner_join(ensayos %>% select(grupo, all_of(ens_cols)), by = "grupo") %>%
+  tibble::column_to_rownames("grupo")
+
+# Elimina columnas con NA o varianza cero (evita fallos en PCA)
+X <- X[, colSums(is.na(X)) == 0, drop = FALSE]
+X <- X[, apply(X, 2, function(z) sd(z, na.rm = TRUE) > 0), drop = FALSE]
+
+# 2) PCA sobre columnas (variables); centrado-escalado por columna
+#    >>> Invertimos α-glucosidase ANTES de la PCA para alinear su dirección con metabolitos <<<
+X_sc <- scale(X)
+if ("α-glucosidase" %in% colnames(X_sc)) {
+  X_sc[, "α-glucosidase"] <- -1 * X_sc[, "α-glucosidase"]
+} else {
+  warning("No se encontró la columna 'α-glucosidase' en X_sc; no se aplicó inversión de signo.")
+}
+pca  <- prcomp(X_sc, center = FALSE, scale. = FALSE)
+var_expl <- (pca$sdev^2) / sum(pca$sdev^2)
+
+# 3) Cargas (loadings) PC1–PC2
+load <- as.data.frame(pca$rotation[, 1:2])
+names(load) <- c("PC1","PC2")
+load$var  <- rownames(load)
+load$type <- ifelse(load$var %in% ens_cols, "Ensayo", "Metabolito")
+load$norm <- sqrt(load$PC1^2 + load$PC2^2)
+
+# Etiqueta clara para la variable invertida (solo estética en el gráfico)
+load$var_plot <- load$var
+load$var_plot[load$var == "α-glucosidase"] <- "α-glucosidase"
+
+# (Opcional) si hay demasiados metabolitos, limitar a los más “informativos”
+max_met_labels <- if (sum(load$type == "Metabolito") > 120) 120 else Inf
+
+met_rows <- load %>% 
+  filter(type == "Metabolito") %>% 
+  arrange(desc(norm))
+
+# n_keep debe ser un ESCALAR (constante) para slice/head
+n_keep <- if (is.infinite(max_met_labels)) nrow(met_rows) else min(nrow(met_rows), max_met_labels)
+
+metab_sel <- head(met_rows, n_keep)
+
+load_plot <- dplyr::bind_rows(
+  load %>% filter(type == "Ensayo"),
+  metab_sel
+)
+
+# 4) Rango y aspecto
+xr <- range(load$PC1); yr <- range(load$PC2)
+pad <- 0.05
+xr <- xr + c(-1, 1) * diff(xr) * pad
+yr <- yr + c(-1, 1) * diff(yr) * pad
+
+# 5) Gráfico
+biplop <- ggplot(load_plot) +
+  geom_hline(yintercept = 0, color = "grey80", linewidth = 0.4) +
+  geom_vline(xintercept = 0, color = "grey80", linewidth = 0.4) +
+  # vectores desde el origen
+  geom_segment(aes(x = 0, y = 0, xend = PC1, yend = PC2, color = type,
+                   size = type, alpha = type),
+               arrow = arrow(length = unit(0.015, "npc"), type = "closed"),
+               lineend = "round") +
+  # etiquetas de metabolitos (pequeñas, con recuadro blanco)
+  geom_label_repel(
+    data = subset(load_plot, type == "Metabolito"),
+    aes(PC1, PC2, label = var_plot),
+    size = 2.5, fill = "white", color = "black",
+    label.padding = unit(0.05, "lines"),
+    label.r = unit(0.05, "lines"),
+    label.size = 0.15,
+    box.padding = 0.1,
+    point.padding = 0.05,
+    max.overlaps = 300, min.segment.length = 0
+  ) +
+  # etiquetas de ensayos (grandes, destacadas)
+  geom_label_repel(
+    data = subset(load_plot, type == "Ensayo"),
+    aes(PC1, PC2, label = var_plot),
+    size = 4.8, fontface = "bold", fill = "#FFF", color = "#000",
+    label.padding = unit(0.12, "lines"),
+    label.r = unit(0.12, "lines"),
+    label.size = 0.3,
+    max.overlaps = 100
+  ) +
+  scale_color_manual(values = c(Metabolito = "#6B7280", Ensayo = "#B91C1C")) +
+  scale_size_manual(values  = c(Metabolito = 0.35,    Ensayo = 0.9), guide = "none") +
+  scale_alpha_manual(values = c(Metabolito = 0.6,     Ensayo = 1.0), guide = "none") +
+  coord_fixed(ratio = 0.6, xlim = xr, ylim = yr) +
+  labs(
+    x = sprintf("PC1 (%.1f%%)", 100 * var_expl[1]),
+    y = sprintf("PC2 (%.1f%%)", 100 * var_expl[2]),
+    title = "Biplot of variables (loadings): metabolites vs. assays"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold", hjust = 0.5)
+  )
+
+# Guardado opcional
+ggsave(filename = "Biplop.pdf", plot = biplop, width = 12, height = 8, units = "in", dpi = 300)
+ggsave(filename = "Biplop.png", plot = biplop, width = 12, height = 8, units = "in", dpi = 300)
+
+biplop
+
 ```
 
