@@ -6,7 +6,7 @@ Este repositorio contiene los resultados y el código analítico relacionados co
 
 ##  Antecedentes científicos
 
-Diversos estudios han demostrado que *Ilex guayusa* (conocido como guayusa, huayusa o wuayusa) posee compuestos bioactivos como cafeína, teobromina, ácido clorogénico, flavonoides y triterpenos, con efectos estimulantes, antioxidantes, antiinflamatorios y potencialmente antidiabéticos :contentReference[oaicite:1]{index=1}.
+Diversos estudios han demostrado que *Ilex guayusa* (conocido como guayusa, huayusa o wuayusa) posee compuestos bioactivos como cafeína, teobromina, ácido clorogénico, flavonoides y triterpenos, con efectos estimulantes, antioxidantes, antiinflamatorios y potencialmente antidiabéticos.
 
 Estudios recientes en modelos animales con diabetes inducida por estreptozotocina mostraron que el consumo de té de *Ilex guayusa*:
 
