@@ -10,8 +10,8 @@ Diversos estudios han demostrado que *Ilex guayusa* (conocido como guayusa, huay
 
 Estudios recientes en modelos animales con diabetes inducida por estreptozotocina mostraron que el consumo de té de *Ilex guayusa*:
 
-- Retrasa el desarrollo de hiperglicemia y ayuda a conservar la masa corporal :contentReference[oaicite:2]{index=2}.
-- Mejora la modulación simpática vascular, relevante en disfunciones autonómicas asociadas a la diabetes :contentReference[oaicite:3]{index=3}.
+- Retrasa el desarrollo de hiperglicemia y ayuda a conservar la masa corporal.
+- Mejora la modulación simpática vascular, relevante en disfunciones autonómicas asociadas a la diabetes.
 - Posee alta capacidad antioxidante detectada con ensayos como ABTS, DPPH, acompañada de elevados contenidos de fenólicos y flavonoides, especialmente en infusiones comparadas con decocciones 
 
 ##  Contenido del repositorio
