@@ -20,6 +20,7 @@ Estudios recientes en modelos animales con diabetes inducida por estreptozotocin
 
 - [Cuantificación TFC y TPC](https://github.com/thomasgarzon-cpu/Ilex-Guayusa-antidiabetic-and-antioxidant/blob/main/Anova/Scripts/Guayusa_anova_v2.md])
 - [Actividad antioxidante](https://github.com/thomasgarzon-cpu/Ilex-Guayusa-antidiabetic-and-antioxidant/blob/main/Antioxidante/Scripts/antioxidant_analysis_notebook_agricole_tukey.md)
+  - [Comparación entre DPPH y ABTS](https://github.com/thomasgarzon-cpu/Ilex-Guayusa-antidiabetic-and-antioxidant/blob/main/Antioxidante/Scripts/Comparation_ABTS_DPPH.md)
   - [Ensayo alternativo de tukey para antioxidantes](https://github.com/thomasgarzon-cpu/Ilex-Guayusa-antidiabetic-and-antioxidant/blob/main/Antioxidante/Scripts/antioxidant_analysis_notebook.md)
 - [Correlación de Pearson](https://github.com/thomasgarzon-cpu/Ilex-Guayusa-antidiabetic-and-antioxidant/blob/main/Pearson/Scripts/Treatmen_data_pearson.md)
 
