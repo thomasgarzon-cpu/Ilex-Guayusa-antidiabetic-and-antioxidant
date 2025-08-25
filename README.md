@@ -1,4 +1,4 @@
-# *Ilex Guayusa* – Propiedades antidiabéticas y antioxidantes
+# *Ilex guayusa* – Propiedades antidiabéticas y antioxidantes
 
 ##  Descripción general
 
